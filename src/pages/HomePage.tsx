@@ -2,6 +2,8 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import Button from '../components/ui/Button';
 import SatelliteScene from '../components/spacecraft/SatelliteScene';
+import { useMission } from '../context/MissionContext';
+import { Play } from 'lucide-react';
 
 interface HomePageProps {
   onOpenHowToPlay?: () => void;
@@ -12,6 +14,17 @@ export const HomePage: React.FC<HomePageProps> = ({
   onOpenHowToPlay,
 }) => {
   const navigate = useNavigate();
+  const { mission, hasSavedMission, startNewMission, restoreSavedMission } = useMission();
+
+  const handleStartMission = () => {
+    startNewMission();
+    navigate('/briefing');
+  };
+
+  const handleContinueMission = () => {
+    restoreSavedMission();
+    navigate('/briefing');
+  };
 
   return (
     <>
@@ -46,16 +59,30 @@ export const HomePage: React.FC<HomePageProps> = ({
           </p>
 
           {/* Actions Row */}
-          <div className="flex flex-wrap items-center gap-6">
-            {/* Primary Action Button -> Enters Mission Briefing */}
+          <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+            {/* Primary Action Button -> Starts Fresh Mission Briefing */}
             <Button
               variant="primary"
               size="md"
-              onClick={() => navigate('/briefing')}
-              className="font-bold"
+              onClick={handleStartMission}
+              className="font-bold shadow-xl shadow-sky-500/20"
             >
               START MISSION
             </Button>
+
+            {/* Continue Mission Button (if saved draft exists) */}
+            {hasSavedMission && (
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={handleContinueMission}
+                className="font-mono text-xs flex items-center gap-1.5 border-slate-700 hover:border-sky-500/50"
+                title={`Resume saved draft: ${mission.missionName || mission.missionId}`}
+              >
+                <Play size={13} className="text-sky-400" />
+                <span>CONTINUE</span>
+              </Button>
+            )}
 
             {/* Secondary Text Link */}
             <button
@@ -67,6 +94,15 @@ export const HomePage: React.FC<HomePageProps> = ({
               </span>
             </button>
           </div>
+
+          {/* Saved Draft Quick Status */}
+          {hasSavedMission && (
+            <div className="mt-4 flex items-center gap-2 text-[11px] font-mono text-slate-400 bg-slate-900/60 px-3 py-1.5 rounded-full border border-slate-800">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Saved Mission Draft Available:</span>
+              <strong className="text-slate-200">{mission.planner.objectiveId.toUpperCase()}</strong>
+            </div>
+          )}
         </div>
 
         {/* RIGHT COLUMN: Dedicated Observation Corridor for Orbiting Satellite */}

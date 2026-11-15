@@ -9,7 +9,6 @@ import {
   Battery,
   Radio,
   Cpu,
-  Shield,
   Layers,
   ChevronDown,
   ChevronUp,
@@ -30,10 +29,11 @@ import {
   SelectedSpacecraftComponents,
   SpacecraftComponent,
 } from '../types/builder';
-import MarsEngineeringBayScene from '../components/spacecraft/MarsEngineeringBayScene';
+import SpacecraftMoonScene from '../components/spacecraft/SpacecraftMoonScene';
 import Button from '../components/ui/Button';
 import UnifiedGameNav from '../components/navigation/UnifiedGameNav';
 import UnifiedMissionGuideModal from '../components/navigation/UnifiedMissionGuideModal';
+import { useMission } from '../context/MissionContext';
 
 /**
  * Lightweight scroll intersection hook that triggers once when a section enters the viewport.
@@ -63,6 +63,7 @@ function useScrollIntersection(threshold = 0.1) {
 export const SpacecraftBuilderPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { mission, updateSpacecraft } = useMission();
 
   // Retrieve Briefing handoff state (difficulty, target, budget/mass limits)
   const briefingState = (location.state || {}) as {
@@ -77,14 +78,14 @@ export const SpacecraftBuilderPage: React.FC = () => {
     };
   };
 
-  // Base constraints from Briefing (with defaults if entered directly)
-  const budgetCapUSD = briefingState.params?.budgetUSD || 1800000;
-  const massLimitKg = briefingState.params?.maxMassKg || 8.0;
-  const targetLabel = briefingState.target ? briefingState.target.toUpperCase() : 'COASTAL WATERS';
+  // Base constraints from Briefing / Shared State (with defaults if entered directly)
+  const budgetCapUSD = briefingState.params?.budgetUSD || mission.briefing.budgetUSD || 1800000;
+  const massLimitKg = briefingState.params?.maxMassKg || mission.briefing.maxMassKg || 8.0;
+  const targetLabel = (briefingState.target || mission.briefing.targetId || 'COASTAL WATERS').toUpperCase();
 
-  // Active player component selections
+  // Active player component selections (hydrated from shared state)
   const [selectedComponents, setSelectedComponents] = useState<SelectedSpacecraftComponents>(
-    DEFAULT_SELECTED_COMPONENTS
+    mission.spacecraft || DEFAULT_SELECTED_COMPONENTS
   );
 
   // Active category tab in the selection deck
@@ -173,6 +174,7 @@ export const SpacecraftBuilderPage: React.FC = () => {
       ...prev,
       [comp.category]: comp.id,
     }));
+    updateSpacecraft({ [comp.category]: comp.id });
     setInspectedComponentId(comp.id);
   };
 
@@ -217,11 +219,13 @@ export const SpacecraftBuilderPage: React.FC = () => {
       {/* ========================================================================= */}
       <section className="relative h-screen min-h-[720px] w-full flex overflow-hidden">
         
-        {/* Full-Viewport 3D Mars Engineering Bay Scene (Highest Priority) */}
+        {/* Full-Viewport 3D Spacecraft Moon Scene */}
         <div className="absolute inset-0 z-0 w-full h-full">
-          <MarsEngineeringBayScene
+          <SpacecraftMoonScene
             selectedComponents={selectedComponents}
             autoRotate={true}
+            cameraDistance={4.8}
+            selectedPayloadId="payload-opt-hires"
           />
         </div>
 
@@ -235,7 +239,7 @@ export const SpacecraftBuilderPage: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <Sliders size={14} className="text-amber-500" />
                   <span className="text-xs font-bold tracking-wider text-white uppercase font-sans">
-                    ENGINEERING BAY CATALOGUE
+                    CLEANROOM COMPONENT CATALOGUE
                   </span>
                 </div>
                 <button
@@ -989,10 +993,10 @@ export const SpacecraftBuilderPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="p-2.5 bg-amber-950/40 border border-amber-900/40 rounded-lg text-[11px] text-amber-300 flex items-center gap-2">
-                <Shield size={14} className="shrink-0" />
+              <div className="p-2.5 bg-emerald-950/40 border border-emerald-900/40 rounded-lg text-[11px] text-emerald-300 flex items-center gap-2">
+                <CheckCircle2 size={14} className="shrink-0 text-emerald-400" />
                 <span>
-                  Phase 03 (Subsystems & Wiring) is under active development by Member 2.
+                  Spacecraft bus structure locked. Ready to configure electrical, RF, and thermal subsystems.
                 </span>
               </div>
             </div>
@@ -1003,17 +1007,17 @@ export const SpacecraftBuilderPage: React.FC = () => {
                 onClick={() => setIsStageGateOpen(false)}
                 className="px-4 py-2 text-xs font-mono text-stone-400 hover:text-white transition-colors cursor-pointer hover:bg-stone-900 rounded-full"
               >
-                ← REVISE CONFIGURATION
+                ← REVISE BUS
               </button>
 
               <button
                 onClick={() => {
                   setIsStageGateOpen(false);
-                  navigate('/briefing');
+                  navigate('/subsystems');
                 }}
-                className="px-5 py-2 bg-amber-600 hover:bg-amber-500 text-slate-950 font-mono font-bold text-xs uppercase rounded-full transition-colors cursor-pointer shadow-lg"
+                className="px-5 py-2 bg-sky-500 hover:bg-sky-400 text-slate-950 font-mono font-bold text-xs uppercase rounded-full transition-colors cursor-pointer shadow-lg"
               >
-                RETURN TO BRIEFING
+                PROCEED TO SUBSYSTEMS →
               </button>
             </div>
 

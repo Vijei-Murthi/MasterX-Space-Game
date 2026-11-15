@@ -34,6 +34,7 @@ import Button from '../components/ui/Button';
 import UnifiedGameNav from '../components/navigation/UnifiedGameNav';
 import UnifiedMissionGuideModal from '../components/navigation/UnifiedMissionGuideModal';
 import EarthToMarsCinematicTransition from '../components/cinematic/EarthToMarsCinematicTransition';
+import { useMission } from '../context/MissionContext';
 
 /**
  * Lightweight scroll intersection hook that triggers once when a section enters the viewport.
@@ -63,10 +64,15 @@ function useScrollIntersection(threshold = 0.12) {
 
 export const MissionBriefingPage: React.FC = () => {
   const navigate = useNavigate();
+  const { mission, updateBriefing } = useMission();
 
-  // Active game choices
-  const [selectedDifficulty, setSelectedDifficulty] = useState<MissionDifficulty>('normal');
-  const [selectedTargetId, setSelectedTargetId] = useState<ScientificTargetId>('coastal');
+  // Active game choices (hydrated from shared state)
+  const [selectedDifficulty, setSelectedDifficulty] = useState<MissionDifficulty>(
+    mission.briefing.difficulty || 'normal'
+  );
+  const [selectedTargetId, setSelectedTargetId] = useState<ScientificTargetId>(
+    mission.briefing.targetId || 'coastal'
+  );
   const [isGuideOpen, setIsGuideOpen] = useState<boolean>(false);
   const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
 
@@ -717,6 +723,15 @@ export const MissionBriefingPage: React.FC = () => {
       {isTransitioning && (
         <EarthToMarsCinematicTransition
           onComplete={() => {
+            updateBriefing({
+              difficulty: selectedDifficulty,
+              targetId: selectedTargetId,
+              budgetUSD: currentParams.budgetUSD,
+              maxMassKg: currentParams.maxMassKg,
+              batteryReserveWh: currentParams.batteryReserveWh,
+              minPowerWatts: currentParams.minPowerWatts,
+            });
+
             navigate('/planner', {
               state: {
                 difficulty: selectedDifficulty,

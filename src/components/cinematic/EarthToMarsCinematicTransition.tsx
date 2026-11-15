@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect, useMemo, Suspense } from 'react';
 import { Canvas, useFrame, useLoader } from '@react-three/fiber';
 import * as THREE from 'three';
-import { FastForward, Rocket, Compass, Radio } from 'lucide-react';
+import { FastForward } from 'lucide-react';
 
 interface TransitionProps {
   onComplete: () => void;
@@ -289,8 +289,6 @@ const CruiseSpacecraft: React.FC<{ progress: number }> = ({ progress }) => {
 
 export const EarthToMarsCinematicTransition: React.FC<TransitionProps> = ({
   onComplete,
-  targetName = 'Coastal & Marine Water Quality',
-  difficultyLabel = 'NORMAL',
 }) => {
   const [progress, setProgress] = useState(0); // 0.0 to 1.0
   const durationMs = 6500; // 6.5s cinematic sequence
@@ -315,40 +313,6 @@ export const EarthToMarsCinematicTransition: React.FC<TransitionProps> = ({
     animId = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(animId);
   }, [onComplete]);
-
-  // Current Scene Subtitle & Phase Description
-  const currentSceneInfo = useMemo(() => {
-    if (progress < 0.25) {
-      return {
-        phase: 'SCENE 1 // EARTH MISSION DEPARTURE',
-        title: 'TRANS-MARS INJECTION (TMI) IGNITION',
-        detail: 'Escaping Low Earth Orbit • Main Thruster at 100% Throttle',
-        velocity: '11.2 km/s (Escape Velocity)',
-      };
-    }
-    if (progress < 0.65) {
-      return {
-        phase: 'SCENE 2 // INTERPLANETARY CRUISE',
-        title: 'DEEP SPACE HELIOCENTRIC TRANSFER',
-        detail: `En route to Mars Staging Deck • Payload: ${targetName}`,
-        velocity: '32.8 km/s (Heliocentric Transfer)',
-      };
-    }
-    if (progress < 0.88) {
-      return {
-        phase: 'SCENE 3 // MARS APPROACH & AEROCAPTURE',
-        title: 'AREOCENTRIC ORBITAL INSERTION',
-        detail: 'Mars Gravity Capture Confirmed • Retrograde Deceleration Vector',
-        velocity: '5.4 km/s (Mars Capture)',
-      };
-    }
-    return {
-      phase: 'SCENE 4 // MARS STAGING FACILITY',
-      title: 'DOCKING: MARS ENGINEERING BAY',
-      detail: 'Deploying Rotary Workstation Turntable • Chassis Staging Active',
-      velocity: '0.8 km/s (Landing Corridor)',
-    };
-  }, [progress, targetName]);
 
   return (
     <div className="fixed inset-0 z-50 bg-[#030712] text-white select-none overflow-hidden animate-in fade-in duration-300">
@@ -397,77 +361,26 @@ export const EarthToMarsCinematicTransition: React.FC<TransitionProps> = ({
       </div>
 
       {/* Screen Vignette */}
-      <div className="absolute inset-0 pointer-events-none bg-radial from-transparent via-[#030712]/30 to-[#030712]/80 z-10" />
+      <div className="absolute inset-0 pointer-events-none bg-radial from-transparent via-[#030712]/20 to-[#030712]/70 z-10" />
 
-      {/* ========================================================================= */}
-      {/* CINEMATIC MISSION HUD OVERLAYS                                            */}
-      {/* ========================================================================= */}
-      
-      {/* Top Banner: Mission Status Readout */}
-      <div className="absolute top-20 inset-x-0 z-20 flex justify-center px-6">
-        <div className="bg-[#060c19]/80 backdrop-blur-xl border border-sky-900/60 rounded-full px-5 py-2 shadow-2xl flex items-center gap-3 font-mono text-xs text-slate-300">
-          <Rocket size={15} className="text-sky-400 animate-pulse" />
-          <span className="font-bold text-white uppercase">{currentSceneInfo.phase}</span>
-          <span className="text-slate-600">•</span>
-          <span className="text-sky-300">{currentSceneInfo.velocity}</span>
-        </div>
+      {/* Subtle Bottom Progress Strip */}
+      <div className="absolute bottom-0 inset-x-0 h-1 bg-slate-900/60 z-20 overflow-hidden">
+        <div
+          className="h-full bg-sky-500 transition-all duration-150"
+          style={{ width: `${progress * 100}%` }}
+        />
       </div>
 
-      {/* Center Cinematic Announcement Banner */}
-      <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 z-20 pointer-events-none flex flex-col items-center text-center px-6">
-        <div className="bg-[#030712]/60 backdrop-blur-md px-6 py-4 rounded-2xl border border-slate-800/80 shadow-2xl max-w-xl">
-          <span className="text-[11px] font-mono tracking-widest text-sky-400 font-bold block uppercase mb-1">
-            MASTERX • INTERPLANETARY STAGING
-          </span>
-          <h2 className="text-2xl sm:text-3xl font-black text-white uppercase font-sans tracking-tight">
-            {currentSceneInfo.title}
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-300 mt-1 font-sans">
-            {currentSceneInfo.detail}
-          </p>
-        </div>
-      </div>
-
-      {/* Bottom Telemetry Bar & Progress Indicator */}
-      <div className="absolute bottom-8 inset-x-6 sm:inset-x-12 z-20 flex flex-col sm:flex-row items-center justify-between gap-4">
-        
-        {/* Left: Transfer Progress Bar */}
-        <div className="w-full sm:w-80 bg-[#060c19]/85 backdrop-blur-xl border border-slate-800/90 rounded-2xl p-3 shadow-2xl font-mono text-xs">
-          <div className="flex justify-between items-center text-[10px] text-slate-400 mb-1.5 uppercase">
-            <span>TRANSIT PROGRESS</span>
-            <span className="text-sky-400 font-bold">{Math.round(progress * 100)}%</span>
-          </div>
-          <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all duration-150 ${
-                progress > 0.45 ? 'bg-amber-500' : 'bg-sky-500'
-              }`}
-              style={{ width: `${progress * 100}%` }}
-            />
-          </div>
-          <span className="text-[10px] text-slate-500 block mt-1.5 truncate">
-            {progress > 0.45 ? 'INGRESS: MARS ATMOSPHERIC CORRIDOR' : 'EGRESS: GEOMAGNETIC SHADOW ESCAPE'}
-          </span>
-        </div>
-
-        {/* Center: Mission Profile */}
-        <div className="hidden lg:flex items-center gap-3 bg-[#060c19]/80 backdrop-blur-md px-4 py-2.5 rounded-full border border-slate-800 font-mono text-xs text-slate-300">
-          <Compass size={14} className="text-sky-400" />
-          <span>TIER: <strong className="text-white">{difficultyLabel}</strong></span>
-          <span className="text-slate-600">•</span>
-          <Radio size={14} className="text-emerald-400" />
-          <span>TELEMETRY: <strong className="text-emerald-400">CARRIER LOCK</strong></span>
-        </div>
-
-        {/* Right: Skip Button */}
+      {/* Clean, Non-Intrusive Skip Control (Bottom Right) */}
+      <div className="absolute bottom-6 right-6 sm:bottom-8 sm:right-8 z-30">
         <button
           onClick={onComplete}
-          className="group flex items-center gap-2 px-5 py-2.5 bg-slate-900/90 hover:bg-slate-800 border border-slate-700 hover:border-sky-400 rounded-full text-xs font-mono font-bold uppercase tracking-wider text-slate-200 hover:text-white transition-all shadow-2xl cursor-pointer"
+          className="group flex items-center gap-2 px-4 py-2 bg-[#060c19]/80 hover:bg-[#0b1426] backdrop-blur-md border border-slate-700/80 hover:border-sky-400 rounded-full text-xs font-mono font-semibold uppercase tracking-wider text-slate-300 hover:text-white transition-all shadow-xl cursor-pointer"
+          title="Skip cinematic orbital transition"
         >
-          <span>SKIP TRANSITION</span>
-          <FastForward size={14} className="text-sky-400 group-hover:translate-x-0.5 transition-transform" />
+          <span>SKIP</span>
+          <FastForward size={13} className="text-sky-400 group-hover:translate-x-0.5 transition-transform" />
         </button>
-
       </div>
 
     </div>

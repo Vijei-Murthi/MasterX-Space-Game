@@ -1,13 +1,14 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { HelpCircle, Home, Lock, Check } from 'lucide-react';
+import { HelpCircle, Home, Check } from 'lucide-react';
+import MasterXLogo from '../ui/MasterXLogo';
 
 export type StageNum = '01' | '02' | '03' | '04' | '05' | '06';
 
 interface UnifiedGameNavProps {
   activeStage: StageNum;
   onOpenGuide: () => void;
-  missionState?: any;
+  missionState?: unknown;
 }
 
 export const UnifiedGameNav: React.FC<UnifiedGameNavProps> = ({
@@ -20,10 +21,10 @@ export const UnifiedGameNav: React.FC<UnifiedGameNavProps> = ({
   const stages = [
     { num: '01', name: 'Briefing', path: '/briefing' },
     { num: '02', name: 'Spacecraft', path: '/planner' },
-    { num: '03', name: 'Subsystems', path: '' },
-    { num: '04', name: 'Payload', path: '' },
-    { num: '05', name: 'Orbit & Launch', path: '' },
-    { num: '06', name: 'Simulation', path: '' },
+    { num: '03', name: 'Subsystems', path: '/subsystems' },
+    { num: '04', name: 'Payload', path: '/payload' },
+    { num: '05', name: 'Orbit & Launch', path: '/orbit-launch' },
+    { num: '06', name: 'Simulation', path: '/simulation' },
   ];
 
   const handleStageClick = (stage: typeof stages[0]) => {
@@ -40,30 +41,22 @@ export const UnifiedGameNav: React.FC<UnifiedGameNavProps> = ({
     <nav className="fixed top-4 inset-x-4 sm:inset-x-8 z-40 flex items-center justify-between pointer-events-none select-none">
       
       {/* ========================================================================= */}
-      {/* 1. TOP-LEFT: ORIGINAL MASTERX PNG LOGO IN FLOATING PILL                   */}
+      {/* 1. TOP-LEFT: ORIGINAL MASTERX PNG LOGO                                    */}
       {/* ========================================================================= */}
-      <div className="pointer-events-auto flex items-center px-4 py-2 bg-[#060c19]/80 backdrop-blur-xl border border-slate-800/80 rounded-full shadow-2xl hover:border-sky-500/50 transition-all">
-        <Link
-          to="/"
-          className="flex items-center gap-2 group outline-none"
-          title="Return to Space Machine Home"
-        >
-          <img
-            src="/assets/masterx-logo.png"
-            alt="MASTERX — SPACE MACHINE"
-            className="h-6 sm:h-7 w-auto object-contain"
-          />
-        </Link>
+      <div className="pointer-events-auto flex items-center select-none py-1 transition-opacity hover:opacity-90">
+        <MasterXLogo withLink size="md" />
       </div>
 
       {/* ========================================================================= */}
-      {/* 2. TOP-CENTER: SIX FLOATING IPHONE-STYLE NAVIGATION BUBBLES               */}
+      {/* 2. TOP-CENTER: SIX FLOATING NAVIGATION BUBBLES                            */}
       {/* ========================================================================= */}
-      <div className="pointer-events-auto flex items-center p-1.5 bg-[#081020]/85 backdrop-blur-2xl border border-slate-800/80 rounded-full shadow-2xl space-x-1 sm:space-x-1.5 max-w-[85vw] sm:max-w-none overflow-x-auto">
+      <div
+        className="pointer-events-auto flex items-center p-1.5 bg-[#081020]/85 backdrop-blur-2xl border border-slate-800/80 rounded-full shadow-2xl space-x-1 sm:space-x-1.5 max-w-[85vw] sm:max-w-none overflow-x-auto no-scrollbar"
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+      >
         {stages.map((stage) => {
           const isActive = stage.num === activeStage;
           const isCompleted = Number(stage.num) < Number(activeStage);
-          const isLocked = Number(stage.num) > Number(activeStage);
 
           if (isActive) {
             return (
@@ -94,15 +87,15 @@ export const UnifiedGameNav: React.FC<UnifiedGameNavProps> = ({
           }
 
           return (
-            <div
+            <button
               key={stage.num}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-mono tracking-wider bg-slate-900/50 text-slate-500 border border-slate-800/40 select-none opacity-60"
-              title={`${stage.name} (Locked)`}
+              onClick={() => handleStageClick(stage)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-mono tracking-wider bg-slate-900/50 text-slate-400 hover:text-slate-200 hover:bg-slate-800/80 border border-slate-800/40 cursor-pointer transition-all"
+              title={`Jump to ${stage.name}`}
             >
               <span>{stage.num}</span>
               <span className="hidden md:inline font-sans">{stage.name}</span>
-              {isLocked && <Lock size={10} className="text-slate-600 ml-0.5" />}
-            </div>
+            </button>
           );
         })}
       </div>

@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/navigation/Navbar';
 import Modal from '../components/ui/Modal';
 import Button from '../components/ui/Button';
-import { Rocket, BookOpen, Compass, Save } from 'lucide-react';
+import { Rocket, BookOpen, Compass, Save, Trash2, AlertCircle } from 'lucide-react';
+import { useMission } from '../context/MissionContext';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -12,6 +13,14 @@ interface MainLayoutProps {
 export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   const [activeModal, setActiveModal] = useState<string | null>(null);
   const navigate = useNavigate();
+  const {
+    mission,
+    hasSavedMission,
+    savedDraftTimestamp,
+    startNewMission,
+    restoreSavedMission,
+    resetMission,
+  } = useMission();
 
   const closeModal = () => setActiveModal(null);
 
@@ -134,8 +143,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           <div className="grid grid-cols-1 gap-2 pt-1">
             <button
               onClick={() => {
-                alert('Launch Profile 01: Low Earth Orbit (500 km SSO) selected. Loading engineering workbench...');
+                startNewMission({ difficulty: 'normal', targetId: 'coastal' });
                 closeModal();
+                navigate('/briefing');
               }}
               className="text-left p-3 rounded bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 transition-colors flex items-center justify-between cursor-pointer"
             >
@@ -147,8 +157,9 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             </button>
             <button
               onClick={() => {
-                alert('Launch Profile 02: Polar Orbit (600 km) selected. Loading engineering workbench...');
+                startNewMission({ difficulty: 'hard', targetId: 'atmosphere' });
                 closeModal();
+                navigate('/briefing');
               }}
               className="text-left p-3 rounded bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 transition-colors flex items-center justify-between cursor-pointer"
             >
@@ -171,30 +182,90 @@ export const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
         maxWidth="md"
       >
         <div className="space-y-4 text-xs sm:text-sm text-slate-300">
-          <div className="flex items-center gap-3 p-3 bg-slate-900/60 border border-slate-800 rounded">
-            <Save className="text-sky-400 shrink-0" size={18} />
-            <div>
-              <p className="font-semibold text-white">Autosave Slot 01: EO-Sat Alpha</p>
-              <p className="text-xs text-slate-400">Orbit: 500 km SSO • Phase: Design Phase (3U CubeSat)</p>
+          {hasSavedMission ? (
+            <>
+              <div className="flex items-center gap-3 p-3 bg-slate-900/60 border border-slate-800 rounded">
+                <Save className="text-sky-400 shrink-0" size={18} />
+                <div className="text-left">
+                  <p className="font-semibold text-white">{mission.missionName || 'CubeSat Earth Observation'}</p>
+                  <p className="text-xs text-slate-400">
+                    ID: {mission.missionId} • Stage: {mission.currentStage}
+                  </p>
+                  {savedDraftTimestamp && (
+                    <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                      Last Saved: {new Date(savedDraftTimestamp).toLocaleString()}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="p-3 bg-slate-900/40 border border-slate-800 rounded text-left space-y-1 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Objective:</span>
+                  <span className="text-sky-300 uppercase font-mono">{mission.planner.objectiveId}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Chassis:</span>
+                  <span className="text-white font-mono">{mission.spacecraft.structure.toUpperCase()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Orbit:</span>
+                  <span className="text-emerald-400 font-mono">{mission.orbitLaunch.selectedOrbitId.toUpperCase()}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    resetMission();
+                  }}
+                  className="flex items-center gap-1.5 text-xs text-rose-400 hover:text-rose-300 font-mono cursor-pointer"
+                >
+                  <Trash2 size={13} />
+                  <span>Clear Saved Draft</span>
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <Button variant="secondary" size="sm" onClick={closeModal}>
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      restoreSavedMission();
+                      closeModal();
+                      navigate('/briefing');
+                    }}
+                  >
+                    Resume Mission
+                  </Button>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-6 space-y-3">
+              <div className="inline-flex p-3 bg-slate-900 rounded-full text-slate-500">
+                <AlertCircle size={24} />
+              </div>
+              <h4 className="text-sm font-bold text-white">No Saved Mission Found</h4>
+              <p className="text-xs text-slate-400 max-w-xs mx-auto">
+                No active CubeSat mission draft was found in local storage. Start a new mission to begin.
+              </p>
+              <div className="pt-2 flex justify-center">
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    startNewMission();
+                    closeModal();
+                    navigate('/briefing');
+                  }}
+                >
+                  Start New Mission
+                </Button>
+              </div>
             </div>
-          </div>
-          <p className="text-xs text-slate-400">
-            Shared state storage is connected to the telemetry and simulation reports engine (Member 3).
-          </p>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="secondary" size="sm" onClick={closeModal}>
-              Cancel
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => {
-                alert('Resuming saved mission EO-Sat Alpha...');
-                closeModal();
-              }}
-            >
-              Resume Mission
-            </Button>
-          </div>
+          )}
         </div>
       </Modal>
 

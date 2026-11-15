@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
+import MasterXLogo from '../ui/MasterXLogo';
 
 interface NavbarProps {
   onOpenHowToPlay?: () => void;
@@ -26,44 +27,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <header className="relative z-30 w-full px-6 sm:px-12 lg:px-16 pt-7 sm:pt-8 pb-4">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
-        {/* Brand Logo */}
-        <Link
-          to="/"
-          className="group flex items-center gap-3 select-none outline-none focus-visible:ring-1 focus-visible:ring-sky-400 rounded"
-        >
-          {/* Logo with curved arc swoosh */}
-          <div className="relative flex items-center">
-            {/* Elegant curved swoosh above MASTERX */}
-            <svg
-              className="absolute -top-2 left-0 w-24 h-3 pointer-events-none text-sky-400"
-              viewBox="0 0 100 16"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              aria-hidden="true"
-            >
-              <path
-                d="M 2 14 C 28 2, 70 3, 98 12"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                className="opacity-90"
-              />
-            </svg>
-            <span className="text-xl sm:text-2xl font-black tracking-tight text-white font-sans">
-              MASTERX
-            </span>
-          </div>
-
-          {/* Em dash separator */}
-          <span className="text-slate-500 font-light text-base sm:text-lg">
-            —
-          </span>
-
-          {/* Sub-label */}
-          <span className="text-xs sm:text-sm font-semibold tracking-[0.2em] text-slate-300 uppercase">
-            SPACE MACHINE
-          </span>
-        </Link>
+        {/* Brand Logo - MasterX Unified Emblem */}
+        <div className="flex items-center select-none">
+          <MasterXLogo withLink size="md" />
+        </div>
 
         {/* Desktop Navigation Links */}
         <nav className="hidden md:flex items-center space-x-8 lg:space-x-10 text-sm font-medium">
