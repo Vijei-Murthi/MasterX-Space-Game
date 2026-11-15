@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node src/modules/simulation/run-tests.mjs && node scripts/verify-integration.mjs",
+    "test:simulation": "node src/modules/simulation/run-tests.mjs",
+    "test:integration": "node scripts/verify-integration.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^10.0.3",
