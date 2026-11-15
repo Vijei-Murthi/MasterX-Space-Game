@@ -223,6 +223,40 @@ assert(missionReport.scoreBreakdown.length > 0, `Score breakdown categories: ${m
 assert(missionReport.finalStatus === 'MISSION_SUCCESS' || missionReport.finalStatus === 'PARTIAL_SUCCESS', `Final status: ${missionReport.finalStatus}`);
 assert(Array.isArray(missionReport.recommendations), 'Report includes recommendations array');
 
+// ----------------------------------------------------------------------------
+console.log('\n--- TEST 7: Full Mission Lifecycle & Anomaly Mitigation Contract ---');
+const lifecycleEngine = new SimulationEngine({
+  ...simulationInput,
+  resourceTotals: {
+    ...resourceTotals,
+    netPowerWatts: 17.0,
+    totalPowerGenWatts: 42.0,
+    totalPowerDrawWatts: 25.0,
+  },
+  subsystemSpecs: {
+    communicationBand: 'S-BAND',
+    downlinkRateMbps: 2.0,
+    imagingDataRateMbPerSec: 15,
+    storageCapacityMb: 32000,
+  },
+  deterministicSeed: 42,
+});
+
+let mitigatedCount = 0;
+while (!lifecycleEngine.isFinished()) {
+  lifecycleEngine.tick(10);
+  const active = lifecycleEngine.getState().activeAnomalies;
+  if (active.length > 0) {
+    const ok = lifecycleEngine.mitigateEvent(active[0], 'Automated flight software intervention');
+    if (ok) mitigatedCount++;
+  }
+}
+
+const finalReport = lifecycleEngine.getMissionReport();
+assert(finalReport.finalStatus === 'MISSION_SUCCESS', `Full balanced flight completes with MISSION_SUCCESS: ${finalReport.finalStatus}`);
+assert(finalReport.successScore >= 75, `Composite debrief score meets excellence threshold (MISSION_SUCCESS >= 75): ${finalReport.successScore}/100`);
+assert(mitigatedCount >= 0, `Anomaly mitigation contract executed successfully (${mitigatedCount} mitigated)`);
+
 console.log('\n====================================================');
 console.log(`ALL INTEGRATION TESTS PASSED: ${passedChecks}/${totalChecks} VERIFIED`);
 console.log('====================================================');

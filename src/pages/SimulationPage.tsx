@@ -16,10 +16,7 @@ import {
   RotateCcw,
   Sun,
   Moon,
-  Battery,
-  HardDrive,
   Radio,
-  Activity,
   Globe,
   ArrowRight,
   ArrowLeft,
@@ -33,9 +30,11 @@ import {
   createInitialSimulationState,
   advanceSimulationStep,
   resetSimulationEngine,
+  getInitialTelemetry,
+  mitigateSimulationAnomaly,
 } from '../adapters/simulationAdapter';
 import { SimulationState, SimulationEvent } from '../types/simulation';
-import { MissionStageTimeline } from '../modules/simulation';
+import { MissionStageTimeline, TelemetryDashboard } from '../modules/simulation';
 import type { TelemetryData } from '../modules/simulation';
 
 export const SimulationPage: React.FC = () => {
@@ -46,7 +45,9 @@ export const SimulationPage: React.FC = () => {
   // Simulation execution state
   const [isRunning, setIsRunning] = useState(true);
   const [simSpeed, setSimSpeed] = useState<number>(1); // 1x, 5x, 10x
-  const [telemetry, setTelemetry] = useState<TelemetryData | null>(null);
+  const [telemetry, setTelemetry] = useState<TelemetryData | null>(() =>
+    getInitialTelemetry(mission)
+  );
   const [simState, setSimState] = useState<SimulationState>(() =>
     createInitialSimulationState(mission)
   );
@@ -84,7 +85,7 @@ export const SimulationPage: React.FC = () => {
 
   const handleResetSim = () => {
     resetSimulationEngine();
-    setTelemetry(null);
+    setTelemetry(getInitialTelemetry(mission));
     setSimState(createInitialSimulationState(mission));
     setEventLog([
       {
@@ -95,6 +96,22 @@ export const SimulationPage: React.FC = () => {
         impact: {},
       },
     ]);
+  };
+
+  const handleMitigateAnomaly = (anomalyId: string) => {
+    const success = mitigateSimulationAnomaly(anomalyId);
+    if (success) {
+      setEventLog((log) => [
+        {
+          id: `mitigate-${Date.now()}`,
+          timestampSeconds: simState.missionElapsedTimeSeconds,
+          type: 'GROUND_PASS',
+          description: `Flight software intervention executed: Anomaly [${anomalyId}] successfully mitigated.`,
+          impact: {},
+        },
+        ...log,
+      ]);
+    }
   };
 
   const formatElapsedTime = (totalSeconds: number) => {
@@ -279,88 +296,12 @@ export const SimulationPage: React.FC = () => {
           </div>
         </div>
 
-        {/* 4 Telemetry HUD Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 font-mono">
-          {/* Card 1: Battery SOC */}
-          <div className="p-4 bg-slate-900/70 border border-slate-800 rounded-xl space-y-2">
-            <div className="flex justify-between items-center text-xs text-slate-400">
-              <span className="flex items-center gap-1.5">
-                <Battery size={14} className={simState.batterySocPercent > 60 ? 'text-emerald-400' : 'text-amber-400'} />
-                BATTERY SOC
-              </span>
-              <span className="text-white font-bold">{simState.batterySocPercent}%</span>
-            </div>
-            <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-              <div
-                className={`h-full transition-all ${
-                  simState.batterySocPercent > 60 ? 'bg-emerald-400' : 'bg-amber-400'
-                }`}
-                style={{ width: `${simState.batterySocPercent}%` }}
-              />
-            </div>
-            <p className="text-[11px] text-slate-400">
-              {simState.isEclipse ? 'Discharging at ~15W' : 'Recharging solar flux'}
-            </p>
-          </div>
-
-          {/* Card 2: Solar Photon Flux */}
-          <div className="p-4 bg-slate-900/70 border border-slate-800 rounded-xl space-y-2">
-            <div className="flex justify-between items-center text-xs text-slate-400">
-              <span className="flex items-center gap-1.5">
-                <Sun size={14} className="text-amber-400" />
-                SOLAR FLUX
-              </span>
-              <span className="text-white font-bold">{simState.solarFluxWm2} W/m²</span>
-            </div>
-            <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-amber-400 transition-all"
-                style={{ width: simState.isEclipse ? '0%' : '100%' }}
-              />
-            </div>
-            <p className="text-[11px] text-slate-400">
-              {simState.isEclipse ? 'Solar array offline in shadow' : 'AM0 space constant illumination'}
-            </p>
-          </div>
-
-          {/* Card 3: Scientific Data Collected */}
-          <div className="p-4 bg-slate-900/70 border border-slate-800 rounded-xl space-y-2">
-            <div className="flex justify-between items-center text-xs text-slate-400">
-              <span className="flex items-center gap-1.5">
-                <HardDrive size={14} className="text-purple-400" />
-                SCIENCE DATA
-              </span>
-              <span className="text-white font-bold">{simState.dataCollectedMb} MB</span>
-            </div>
-            <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-purple-400 transition-all"
-                style={{ width: `${Math.min(100, (simState.dataCollectedMb / 1000) * 100)}%` }}
-              />
-            </div>
-            <p className="text-[11px] text-slate-400">
-              Payload: {mission.payload.selectedPayloadId}
-            </p>
-          </div>
-
-          {/* Card 4: Sub-Satellite Ground Track */}
-          <div className="p-4 bg-slate-900/70 border border-slate-800 rounded-xl space-y-2">
-            <div className="flex justify-between items-center text-xs text-slate-400">
-              <span className="flex items-center gap-1.5">
-                <Activity size={14} className="text-sky-400" />
-                SUB-SATELLITE
-              </span>
-              <span className="text-sky-300 font-bold">{simState.orbitalVelocityKmS} km/s</span>
-            </div>
-            <div className="text-[11px] text-slate-300 space-y-0.5">
-              <div>Lat: <strong className="text-white">{simState.subSatelliteLatitude}°</strong></div>
-              <div>Lon: <strong className="text-white">{simState.subSatelliteLongitude}°</strong></div>
-            </div>
-            <p className="text-[11px] text-slate-400">
-              Alt: {simState.altitudeKm} km LEO
-            </p>
-          </div>
-        </div>
+        {/* Member 3 Live Aerospace Telemetry Dashboard & Anomaly Mitigation HUD */}
+        <TelemetryDashboard
+          telemetry={telemetry}
+          activeAnomalyIds={simState.activeAnomalies}
+          onMitigateAnomaly={handleMitigateAnomaly}
+        />
 
         {/* Live Mission Events Console Log */}
         <div className="p-5 bg-[#081020]/95 border border-slate-800/90 rounded-2xl shadow-xl">

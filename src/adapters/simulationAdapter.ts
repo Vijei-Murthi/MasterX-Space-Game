@@ -103,6 +103,22 @@ export function getOrCreateSimulationEngine(mission: MissionState): SimulationEn
 }
 
 /**
+ * Returns initial telemetry snapshot from Member 3's simulation engine
+ */
+export function getInitialTelemetry(mission: MissionState): TelemetryData {
+  const engine = getOrCreateSimulationEngine(mission);
+  return engine.getTelemetry();
+}
+
+/**
+ * Mitigates an active anomaly in the active simulation engine
+ */
+export function mitigateSimulationAnomaly(eventId: string, mitigationLog?: string): boolean {
+  if (!activeEngine) return false;
+  return activeEngine.mitigateEvent(eventId, mitigationLog);
+}
+
+/**
  * Generates initial telemetry state using Member 3's simulation engine
  */
 export function createInitialSimulationState(mission: MissionState): SimulationState {

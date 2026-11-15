@@ -22,12 +22,27 @@ import type { TelemetryData } from '../types';
 
 export interface TelemetryDashboardProps {
   telemetry: TelemetryData | null;
+  /**
+   * Active anomaly event IDs from useMissionSimulation state.
+   * Connect to: sim.state?.activeAnomalies (string[] of event IDs from EventSystem)
+   * The dashboard uses the first active ID when the MITIGATE button is pressed.
+   * If empty or not supplied, the MITIGATE button is hidden.
+   *
+   * Example (Member 1 wiring):
+   *   <TelemetryDashboard
+   *     telemetry={sim.telemetry}
+   *     activeAnomalyIds={sim.state?.activeAnomalies ?? []}
+   *     onMitigateAnomaly={(id) => sim.mitigateEvent(id)}
+   *   />
+   */
+  activeAnomalyIds?: string[];
   onMitigateAnomaly?: (anomalyId: string) => void;
   className?: string;
 }
 
 export const TelemetryDashboard: React.FC<TelemetryDashboardProps> = ({
   telemetry,
+  activeAnomalyIds = [],
   onMitigateAnomaly,
   className = '',
 }) => {
@@ -67,9 +82,9 @@ export const TelemetryDashboard: React.FC<TelemetryDashboardProps> = ({
             <span>{telemetry.activeAnomalies.join(' | ')}</span>
           </div>
 
-          {onMitigateAnomaly && (
+          {onMitigateAnomaly && activeAnomalyIds.length > 0 && (
             <button
-              onClick={() => onMitigateAnomaly(telemetry.activeAnomalies[0])}
+              onClick={() => onMitigateAnomaly(activeAnomalyIds[0])}
               className="px-3 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-mono font-bold rounded-lg transition-colors cursor-pointer flex items-center gap-1 shrink-0"
             >
               <Wrench size={12} /> MITIGATE

@@ -558,3 +558,50 @@ test('SimulationEngine: getMissionReport() score is bounded between 0 and 100', 
   assert.equal(badReport.successScore, 0, 'Brownout mission must score exactly 0');
   assert.equal(badReport.finalStatus, 'CRITICAL_FAILURE');
 });
+
+// ============================================================================
+// 19. ANOMALY MITIGATION EVENT ID CONTRACT
+//     Verifies the actual event ID returned by EventSystem is a real non-empty
+//     string — not a placeholder — and that mitigateEvent() accepts it correctly.
+//     This validates the contract TelemetryDashboard.activeAnomalyIds relies on.
+// ============================================================================
+
+test('EventSystem: active event IDs are real non-empty strings, not placeholders', () => {
+  const es = new EventSystem(42);
+
+  // Trigger instrument glitch at t=140s
+  const ctx = {
+    elapsedSeconds: 140,
+    currentStage: 'DATA_COLLECTION',
+    batterySocPercent: 85,
+    isEclipse: false,
+    groundContactActive: false,
+    activeAnomalies: [],
+  };
+  const triggered = es.evaluate(ctx);
+  const glitch = triggered.find((e) => e.type === 'INSTRUMENT_GLITCH');
+  assert.ok(glitch, 'INSTRUMENT_GLITCH must trigger at t=140s');
+
+  // Verify real ID properties
+  const eventId = glitch!.id;
+  assert.ok(typeof eventId === 'string', 'Event ID must be a string');
+  assert.ok(eventId.length > 0, 'Event ID must not be empty');
+  assert.notEqual(eventId, 'EVT-ACTIVE', 'Event ID must not be the hardcoded placeholder');
+  assert.ok(eventId.includes('INSTRUMENT_GLITCH') || eventId.startsWith('EVT-'),
+    `Event ID format unexpected: "${eventId}"`);
+
+  // Verify getActiveEvents() exposes the same real IDs
+  const activeIds = es.getActiveEvents().map((e) => e.id);
+  assert.ok(activeIds.includes(eventId), 'getActiveEvents() must include the triggered event ID');
+
+  // Verify mitigateEvent() accepts the real ID (not a placeholder)
+  const mitigated = es.mitigateEvent(eventId, 150);
+  assert.equal(mitigated, true, 'mitigateEvent() must accept the real event ID');
+
+  // Verify mitigateEvent() rejects the hardcoded placeholder
+  const es2 = new EventSystem(42);
+  es2.evaluate(ctx);
+  const rejectedPlaceholder = es2.mitigateEvent('EVT-ACTIVE', 150);
+  assert.equal(rejectedPlaceholder, false,
+    'mitigateEvent() must reject the hardcoded placeholder "EVT-ACTIVE"');
+});
