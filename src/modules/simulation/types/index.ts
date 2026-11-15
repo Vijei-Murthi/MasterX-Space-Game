@@ -166,6 +166,12 @@ export interface OrbitParameters {
   inclinationDeg: number;
   periodMinutes?: number;
   eclipseDurationMinutes?: number;
+  /**
+   * Optional mission duration hint (from Member 2 EngineeringResult).
+   * Not consumed by the engine directly — the engine uses tick(deltaSeconds)
+   * for time progression. Passed through for future scoring and reporting.
+   */
+  durationDays?: number;
 }
 
 export interface SimulationSubsystemSpecs {
@@ -188,6 +194,13 @@ export interface SimulationInput {
   resolvedComponents?: SpacecraftComponent[];
   subsystemSpecs?: Partial<SimulationSubsystemSpecs>;
   deterministicSeed?: number;
+  /**
+   * Optional time compression hint from the UI layer (e.g. 1× = real-time, 10× = fast-forward).
+   * NOT consumed by the engine: time scaling is controlled externally via the deltaSeconds
+   * argument passed to tick(deltaSeconds). This field is provided so the React hook
+   * (useMissionSimulation) can read the caller's preferred default speed at startup.
+   * The engine itself is always driven by wall-clock deltas from the hook's interval timer.
+   */
   timeCompressionFactor?: number;
 }
 
