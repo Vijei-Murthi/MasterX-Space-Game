@@ -55,8 +55,8 @@ export class SimulationEngine {
     // Initialize Subsystems
     this.stageManager = new StageManager('LAUNCH_PREP', 0);
     this.orbitModel = new OrbitModel(
-      input.orbitParams.altitudeKm || 500,
-      input.orbitParams.inclinationDeg || 97.4
+      input.orbitParams.altitudeKm ?? 500,
+      input.orbitParams.inclinationDeg ?? 97.4
     );
     this.eventSystem = new EventSystem(input.deterministicSeed ?? 42);
 
@@ -111,7 +111,7 @@ export class SimulationEngine {
     this.failureReason = undefined;
 
     // Battery begins fully charged (100% capacity)
-    const cap = Math.max(1.0, this.input.resourceTotals.batteryCapacityWh || 45);
+    const cap = Math.max(1.0, this.input.resourceTotals.batteryCapacityWh ?? 45);
     this.batteryStoredWh = cap;
     this.minBatterySocObserved = 100;
     this.totalDataCollectedMb = 0;
@@ -190,9 +190,9 @@ export class SimulationEngine {
   ): void {
     if (this.isBrownout || this.isStructuralFailure) return;
 
-    const baseSolarGen = this.input.resourceTotals.totalPowerGenWatts || 24;
-    const basePowerDraw = this.input.resourceTotals.totalPowerDrawWatts || 12;
-    const nominalCapacityWh = Math.max(1.0, this.input.resourceTotals.batteryCapacityWh || 45);
+    const baseSolarGen = this.input.resourceTotals.totalPowerGenWatts ?? 24;
+    const basePowerDraw = this.input.resourceTotals.totalPowerDrawWatts ?? 12;
+    const nominalCapacityWh = Math.max(1.0, this.input.resourceTotals.batteryCapacityWh ?? 45);
 
     // Effective capacity accounting for battery degradation anomalies
     const effectiveCapacityWh = Math.max(1.0, nominalCapacityWh - impact.totalBatteryCapacityLossWh);
@@ -363,9 +363,9 @@ export class SimulationEngine {
     const orbit = this.orbitModel.evaluateAt(this.missionElapsedTimeSeconds);
     const impact = this.eventSystem.getCombinedImpact();
 
-    const baseSolarGen = this.input.resourceTotals.totalPowerGenWatts || 24;
-    const basePowerDraw = this.input.resourceTotals.totalPowerDrawWatts || 12;
-    const nominalCapacityWh = Math.max(1.0, this.input.resourceTotals.batteryCapacityWh || 45);
+    const baseSolarGen = this.input.resourceTotals.totalPowerGenWatts ?? 24;
+    const basePowerDraw = this.input.resourceTotals.totalPowerDrawWatts ?? 12;
+    const nominalCapacityWh = Math.max(1.0, this.input.resourceTotals.batteryCapacityWh ?? 45);
     const effectiveCapacityWh = Math.max(1.0, nominalCapacityWh - impact.totalBatteryCapacityLossWh);
 
     let liveGenWatts = 0;
@@ -402,7 +402,7 @@ export class SimulationEngine {
       netPowerWatts: Number(netPowerWatts.toFixed(1)),
       solarFluxWm2: orbit.solarFluxWm2,
       isEclipse: orbit.isEclipse,
-      altitudeKm: this.input.orbitParams.altitudeKm || 500,
+      altitudeKm: this.input.orbitParams.altitudeKm ?? 500,
       currentOrbitFraction: orbit.orbitFraction,
       orbitsCompleted: orbit.orbitsCompleted,
       imagingActive: stage === 'DATA_COLLECTION' && !impact.isPayloadDisabled,
@@ -425,7 +425,7 @@ export class SimulationEngine {
   // =========================================================================
 
   public getBatterySocPercent(): number {
-    const nominal = Math.max(1.0, this.input.resourceTotals.batteryCapacityWh || 45);
+    const nominal = Math.max(1.0, this.input.resourceTotals.batteryCapacityWh ?? 45);
     const loss = this.eventSystem.getCombinedImpact().totalBatteryCapacityLossWh;
     const effective = Math.max(1.0, nominal - loss);
     return Math.max(0, Math.min(100, (this.batteryStoredWh / effective) * 100));
@@ -479,8 +479,8 @@ export class SimulationEngine {
       scienceImagesCaptured: this.scienceImagesCaptured,
       minBatterySocPercent: this.minBatterySocObserved,
       finalBatterySocPercent: this.getBatterySocPercent(),
-      budgetMarginUSD: this.input.resourceTotals.budgetMarginUSD || 0,
-      massMarginKg: this.input.resourceTotals.massMarginKg || 0,
+      budgetMarginUSD: this.input.resourceTotals.budgetMarginUSD ?? 0,
+      massMarginKg: this.input.resourceTotals.massMarginKg ?? 0,
       isMassValid: this.input.resourceTotals.isMassValid,
       isPowerValid: this.input.resourceTotals.isPowerValid,
       isBudgetValid: this.input.resourceTotals.isBudgetValid,

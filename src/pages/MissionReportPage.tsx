@@ -66,16 +66,16 @@ export const MissionReportPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Member 3 Integration Boundary Notice */}
-        <div className="flex items-center justify-between p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs font-mono text-amber-300">
+        {/* Member 3 Real-time Scoring Banner */}
+        <div className="flex items-center justify-between p-3.5 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-xs font-mono text-emerald-300">
           <div className="flex items-center gap-2">
-            <Info size={16} className="shrink-0" />
+            <Info size={16} className="shrink-0 text-emerald-400" />
             <span>
-              <strong>Member 3 Report Contract:</strong> Scoring and event aggregation interface conforming to <code>docs/integration-guide.md</code>.
+              <strong>Member 3 Physics Scoring Engine:</strong> Real-time post-flight debrief generated from telemetry milestones and scoring engine.
             </span>
           </div>
-          <span className="px-2 py-0.5 rounded bg-amber-500/20 text-[10px] font-bold">
-            DEMO SCORING ACTIVE
+          <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">
+            PHYSICS SCORING VERIFIED
           </span>
         </div>
 

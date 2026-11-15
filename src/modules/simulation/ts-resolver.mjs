@@ -4,7 +4,11 @@ export async function resolve(specifier, context, nextResolve) {
       return await nextResolve(specifier, context);
     } catch (err) {
       if (err.code === 'ERR_MODULE_NOT_FOUND') {
-        return await nextResolve(specifier + '.ts', context);
+        try {
+          return await nextResolve(specifier + '.ts', context);
+        } catch {
+          return await nextResolve(specifier + '.tsx', context);
+        }
       }
       if (err.code === 'ERR_UNSUPPORTED_DIR_IMPORT') {
         return await nextResolve(specifier + '/index.ts', context);

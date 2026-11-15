@@ -35,6 +35,8 @@ import {
   resetSimulationEngine,
 } from '../adapters/simulationAdapter';
 import { SimulationState, SimulationEvent } from '../types/simulation';
+import { MissionStageTimeline } from '../modules/simulation';
+import type { TelemetryData } from '../modules/simulation';
 
 export const SimulationPage: React.FC = () => {
   const navigate = useNavigate();
@@ -44,6 +46,7 @@ export const SimulationPage: React.FC = () => {
   // Simulation execution state
   const [isRunning, setIsRunning] = useState(true);
   const [simSpeed, setSimSpeed] = useState<number>(1); // 1x, 5x, 10x
+  const [telemetry, setTelemetry] = useState<TelemetryData | null>(null);
   const [simState, setSimState] = useState<SimulationState>(() =>
     createInitialSimulationState(mission)
   );
@@ -64,7 +67,9 @@ export const SimulationPage: React.FC = () => {
     const interval = setInterval(() => {
       setSimState((prev) => {
         const stepSec = 30 * simSpeed;
-        const { nextState, newEvents } = advanceSimulationStep(prev, mission, stepSec);
+        const { nextState, newEvents, telemetry: latestTelemetry } = advanceSimulationStep(prev, mission, stepSec);
+
+        setTelemetry(latestTelemetry);
 
         if (newEvents.length > 0) {
           setEventLog((log) => [...newEvents, ...log].slice(0, 30));
@@ -79,6 +84,7 @@ export const SimulationPage: React.FC = () => {
 
   const handleResetSim = () => {
     resetSimulationEngine();
+    setTelemetry(null);
     setSimState(createInitialSimulationState(mission));
     setEventLog([
       {
@@ -225,6 +231,12 @@ export const SimulationPage: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Member 3 10-Stage Mission Flight Timeline */}
+        <MissionStageTimeline
+          currentStage={telemetry?.currentStage ?? 'LAUNCH_PREP'}
+          stageProgressPercent={telemetry?.stageProgressPercent ?? 0}
+        />
 
         {/* Orbit Progress Timeline Bar */}
         <div className="p-4 bg-[#081020]/90 border border-slate-800/80 rounded-2xl space-y-2">

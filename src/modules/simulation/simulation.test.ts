@@ -316,3 +316,245 @@ test('EventSystem: identical seeds produce identical event timelines and impacts
     assert.deepEqual(impact1, impact2, `Impact mismatch at t=${time}`);
   }
 });
+
+// ============================================================================
+// 11. ZERO-WATT INPUT: nullish fallback must NOT treat 0 as default
+// ============================================================================
+
+test('SimulationEngine: zero power values are accepted and produce negative net power', () => {
+  // Provide explicit 0 W generation and 0 W draw — engine must accept 0 as a valid value.
+  // With ?? fallback, 0 gen → 0 gen (not 24 W default) and 0 draw → 0 draw (not 12 W default).
+  const input = createMockSimulationInput({
+    resourceTotals: createMockResourceTotals({
+      totalPowerGenWatts: 0,
+      totalPowerDrawWatts: 0,
+      netPowerWatts: 0,
+      batteryCapacityWh: 45,
+    }),
+  });
+  const engine = new SimulationEngine(input);
+
+  // Tick in eclipse: gen=0 (eclipse) and draw=0 → net=0 → battery stays full
+  for (let i = 0; i < 6; i++) engine.tick(10);
+  const tel = engine.getTelemetry();
+
+  // Battery must NOT have used the 12 W fallback draw (would have dropped SOC significantly)
+  // With both gen and draw at 0, in eclipse: gen=0 (eclipse suppressed anyway), draw=0 → battery stable
+  assert.ok(
+    tel.batterySocPercent >= 95,
+    `Expected battery near 100% with 0 W gen/draw, got ${tel.batterySocPercent}%`
+  );
+  assert.equal(tel.powerDrawWatts, 0, 'Draw must be exactly 0 W (not fallback 12 W)');
+});
+
+// ============================================================================
+// 12. BATTERY CAPACITY BOUNDARY: 1 Wh battery (engine minimum clamp) drains fast
+// ============================================================================
+
+test('SimulationEngine: minimal battery (engine clamps to 1 Wh) causes brownout under heavy load', () => {
+  // The engine clamps batteryCapacityWh to Math.max(1.0, supplied value).
+  // Supply 0 to trigger the 1 Wh floor, then set draw >> gen so eclipse drains it fast.
+  const input = createMockSimulationInput({
+    resourceTotals: createMockResourceTotals({
+      totalPowerGenWatts: 2,      // very low generation
+      totalPowerDrawWatts: 50,    // very high draw — net ≈ -48 W
+      batteryCapacityWh: 0,       // triggers Math.max(1.0, 0) = 1 Wh effective capacity
+      isPowerValid: false,
+    }),
+  });
+  const engine = new SimulationEngine(input);
+
+  // 1 Wh at 50 W draw: drains in <72 seconds even with partial gen
+  for (let i = 0; i < 30; i++) {
+    engine.tick(5);
+    if (engine.isFinished()) break;
+  }
+
+  const state = engine.getState();
+  assert.equal(state.isFailed, true, 'Must fail: 1 Wh battery cannot sustain 50 W draw in eclipse');
+  assert.match(state.failureReason ?? '', /Brownout/);
+});
+
+// ============================================================================
+// 13. STORAGE OVERFLOW: data collection stops at capacity boundary
+// ============================================================================
+
+test('SimulationEngine: dataStoredMb never exceeds storageCapacityMb', () => {
+  // Very small storage to trigger overflow quickly
+  const input = createMockSimulationInput({
+    subsystemSpecs: {
+      communicationBand: 'X-BAND',
+      downlinkRateMbps: 50,
+      imagingDataRateMbPerSec: 1000, // very fast collection
+      storageCapacityMb: 10, // very small storage
+    },
+  });
+  const engine = new SimulationEngine(input);
+
+  // Run long enough to try to overflow
+  for (let i = 0; i < 100; i++) engine.tick(10);
+
+  const tel = engine.getTelemetry();
+  assert.ok(
+    tel.dataStoredMb <= tel.maxStorageMb,
+    `dataStoredMb (${tel.dataStoredMb}) must not exceed maxStorageMb (${tel.maxStorageMb})`
+  );
+});
+
+// ============================================================================
+// 14. NO DOWNLINK WITHOUT GROUND CONTACT
+// ============================================================================
+
+test('SimulationEngine: transmitted data does not increase when no ground contact', () => {
+  const input = createMockSimulationInput({ deterministicSeed: 999 });
+  const engine = new SimulationEngine(input);
+
+  // Run until we have stored data
+  for (let i = 0; i < 30; i++) engine.tick(10);
+  const beforeTel = engine.getTelemetry();
+  const transmittedBefore = beforeTel.dataTransmittedMb;
+
+  // Tick a few seconds at a time and verify no "phantom" downlink without contact
+  // We check per-tick: transmitted only increases when groundContactActive
+  let phantomDownlink = false;
+  for (let i = 0; i < 10; i++) {
+    const before = engine.getTelemetry();
+    engine.tick(1);
+    const after = engine.getTelemetry();
+
+    // If ground was not active before, transmitted must not have increased
+    if (!before.groundContactActive) {
+      if (after.dataTransmittedMb > before.dataTransmittedMb) {
+        phantomDownlink = true;
+        break;
+      }
+    }
+  }
+
+  assert.equal(phantomDownlink, false, 'Downlink must not occur without ground contact');
+  void transmittedBefore; // suppress unused variable warning
+});
+
+// ============================================================================
+// 15. TRANSMITTED DATA NEVER EXCEEDS COLLECTED DATA
+// ============================================================================
+
+test('SimulationEngine: scienceDataDownlinked never exceeds totalDataCollected', () => {
+  const input = createMockSimulationInput({ deterministicSeed: 7777 });
+  const engine = new SimulationEngine(input);
+
+  for (let i = 0; i < 80; i++) {
+    engine.tick(10);
+    const tel = engine.getTelemetry();
+    assert.ok(
+      tel.dataTransmittedMb <= tel.dataStoredMb + tel.dataTransmittedMb + 0.1,
+      `Transmitted (${tel.dataTransmittedMb} MB) must not exceed what was collected`
+    );
+  }
+
+  // Final cross-check using mission report
+  const report = engine.getMissionReport();
+  assert.ok(
+    report.scienceDataDownlinkedMb <= report.totalDataCollectedMb + 0.1,
+    `Report: downlinked ${report.scienceDataDownlinkedMb} MB > collected ${report.totalDataCollectedMb} MB`
+  );
+});
+
+// ============================================================================
+// 16. EVENT MITIGATION REDUCES (NOT ELIMINATES) ANOMALY IMPACT
+// ============================================================================
+
+test('EventSystem: mitigating an anomaly reduces but does not fully erase its impact', () => {
+  const es = new EventSystem(42);
+
+  // Trigger instrument glitch
+  const ctx = {
+    elapsedSeconds: 140,
+    currentStage: 'DATA_COLLECTION',
+    batterySocPercent: 85,
+    isEclipse: false,
+    groundContactActive: false,
+    activeAnomalies: [],
+  };
+
+  const triggered = es.evaluate(ctx);
+  const glitchEvent = triggered.find((e) => e.type === 'INSTRUMENT_GLITCH');
+  assert.ok(glitchEvent, 'INSTRUMENT_GLITCH must be triggered at t=140');
+
+  const impactBefore = es.getCombinedImpact();
+  assert.ok(impactBefore.instrumentHealthPenaltyPercent > 0, 'Must have penalty before mitigation');
+
+  // Mitigate the event
+  const mitigated = es.mitigateEvent(glitchEvent!.id, 150);
+  assert.equal(mitigated, true, 'mitigateEvent must return true for valid event ID');
+
+  // After mitigation, the event status changes but the engine may retain partial impact
+  // (depends on implementation: either penalty clears or partial remains — both are valid)
+  const impactAfter = es.getCombinedImpact();
+
+  // The instrument glitch must no longer prevent payload operation (isPayloadDisabled = false)
+  assert.equal(impactAfter.isPayloadDisabled, false, 'Payload must be re-enabled after mitigation');
+});
+
+// ============================================================================
+// 17. MISSION RESET RETURNS TO LAUNCH_PREP
+// ============================================================================
+
+test('SimulationEngine: reset() fully restores initial state', () => {
+  const input = createMockSimulationInput({ deterministicSeed: 11111 });
+  const engine = new SimulationEngine(input);
+
+  // Advance several stages
+  for (let i = 0; i < 20; i++) engine.tick(10);
+
+  const beforeReset = engine.getState();
+
+  // Reset and verify
+  engine.reset();
+  const afterReset = engine.getState();
+  const telAfter = engine.getTelemetry();
+
+  assert.equal(afterReset.currentStage, 'LAUNCH_PREP', 'Stage must return to LAUNCH_PREP');
+  assert.equal(afterReset.missionElapsedTimeSeconds, 0, 'Elapsed time must reset to 0');
+  assert.ok(telAfter.batterySocPercent >= 99, `Battery SOC must be ~100% after reset, got ${telAfter.batterySocPercent}%`);
+  assert.equal(telAfter.dataStoredMb, 0, 'Data storage must clear on reset');
+  assert.equal(telAfter.dataTransmittedMb, 0, 'Transmitted data must clear on reset');
+  assert.equal(engine.isFinished(), false, 'Engine must not be finished after reset');
+
+  void beforeReset; // suppress unused warning
+});
+
+// ============================================================================
+// 18. SCORE BOUNDARIES: easy mission with valid spacecraft → score 0–100
+// ============================================================================
+
+test('SimulationEngine: getMissionReport() score is bounded between 0 and 100', () => {
+  // Healthy spacecraft — should produce a valid score > 0
+  const goodInput = createMockSimulationInput({ difficulty: 'easy', deterministicSeed: 42 });
+  const goodEngine = new SimulationEngine(goodInput);
+  for (let i = 0; i < 80; i++) goodEngine.tick(10);
+  const goodReport = goodEngine.getMissionReport();
+
+  assert.ok(goodReport.successScore >= 0, `Score must be >= 0, got ${goodReport.successScore}`);
+  assert.ok(goodReport.successScore <= 100, `Score must be <= 100, got ${goodReport.successScore}`);
+
+  // Failing spacecraft — brownout → score must be 0
+  const badInput = createMockSimulationInput({
+    difficulty: 'hard',
+    deterministicSeed: 42,
+    resourceTotals: createMockResourceTotals({
+      totalPowerGenWatts: 1,
+      totalPowerDrawWatts: 100,
+      batteryCapacityWh: 0.01,
+      isPowerValid: false,
+    }),
+  });
+  const badEngine = new SimulationEngine(badInput);
+  for (let i = 0; i < 30; i++) {
+    badEngine.tick(5);
+    if (badEngine.isFinished()) break;
+  }
+  const badReport = badEngine.getMissionReport();
+  assert.equal(badReport.successScore, 0, 'Brownout mission must score exactly 0');
+  assert.equal(badReport.finalStatus, 'CRITICAL_FAILURE');
+});

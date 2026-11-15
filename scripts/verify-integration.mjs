@@ -2,7 +2,7 @@ import { register } from 'node:module';
 register('../src/modules/simulation/ts-resolver.mjs', import.meta.url);
 
 const { evaluateEngineering } = await import('../src/modules/engineering/index.ts');
-const { SimulationEngine } = await import('../src/modules/simulation/index.ts');
+const { SimulationEngine } = await import('../src/modules/simulation/simulationEngine.ts');
 const { COMPONENT_CATALOGUE } = await import('../src/data/builderCatalogue.ts');
 
 console.log('====================================================');

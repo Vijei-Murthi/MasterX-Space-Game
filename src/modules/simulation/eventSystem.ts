@@ -229,7 +229,11 @@ export class EventSystem {
    * Allows the player or automated flight software to mitigate an active event
    */
   public mitigateEvent(eventId: string, currentTimeSeconds: number, mitigationLog?: string): boolean {
-    const event = this.activeEvents.get(eventId);
+    const event =
+      this.activeEvents.get(eventId) ||
+      Array.from(this.activeEvents.values()).find(
+        (e) => e.id === eventId || e.description === eventId || e.type === eventId
+      );
     if (!event || event.status !== 'ACTIVE') return false;
 
     event.status = 'MITIGATED';
