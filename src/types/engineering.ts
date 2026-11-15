@@ -102,4 +102,25 @@ export interface CalculatedMetrics {
   linkMarginDb: number;
   isDemoData: boolean;
   dataSourceLabel: string;
+  orbitAltitudeKm?: number;
+  imagingDataRateMbPerSec?: number;
+}
+
+/** Engineering-owned specification. Values in the project catalogue are illustrative. */
+export interface EngineeringComponentSpec extends SpacecraftComponent {
+  category: SpacecraftComponent['subsystem'];
+  powerGenerationWatts?: number;
+  powerConsumptionWatts?: number;
+  batteryCapacityWh?: number;
+  downlinkBandwidthMbps?: number;
+  storageCapacityMb?: number;
+  imagingDataRateMbPerSec?: number;
+  dutyCyclePercent?: number;
+  compatibleWith?: string[];
+}
+
+export interface EngineeringResult {
+  metrics: CalculatedMetrics;
+  validation: ValidationResult;
+  resourceState: ResourceState;
 }
