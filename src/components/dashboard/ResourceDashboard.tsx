@@ -93,8 +93,14 @@ export const ResourceDashboard: React.FC<ResourceDashboardProps> = ({
         </div>
 
         {showBadge && (
-          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 border border-amber-500/30 rounded-full text-[10px] font-mono text-amber-300">
-            <Info size={11} />
+          <div
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono ${
+              metrics.isDemoData
+                ? 'bg-amber-500/10 border border-amber-500/30 text-amber-300'
+                : 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-300'
+            }`}
+          >
+            <Info size={11} className={metrics.isDemoData ? 'text-amber-400' : 'text-emerald-400'} />
             <span>{metrics.dataSourceLabel}</span>
           </div>
         )}

@@ -32,6 +32,7 @@ import UnifiedMissionGuideModal from '../components/navigation/UnifiedMissionGui
 import {
   createInitialSimulationState,
   advanceSimulationStep,
+  resetSimulationEngine,
 } from '../adapters/simulationAdapter';
 import { SimulationState, SimulationEvent } from '../types/simulation';
 
@@ -77,6 +78,7 @@ export const SimulationPage: React.FC = () => {
   }, [isRunning, simSpeed, mission]);
 
   const handleResetSim = () => {
+    resetSimulationEngine();
     setSimState(createInitialSimulationState(mission));
     setEventLog([
       {
@@ -147,16 +149,17 @@ export const SimulationPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Member 3 Integration Boundary Notice */}
-        <div className="flex items-center justify-between p-3.5 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs font-mono text-amber-300">
+        {/* Live Simulation Engine Active Notice */}
+        <div className="flex items-center justify-between p-3.5 bg-sky-500/10 border border-sky-500/30 rounded-xl text-xs font-mono text-sky-300">
           <div className="flex items-center gap-2">
-            <Info size={16} className="shrink-0" />
+            <Info size={16} className="shrink-0 text-sky-400" />
             <span>
-              <strong>Member 3 Simulation Boundary:</strong> This telemetry console visualizes the contract in <code>docs/integration-guide.md</code> awaiting the full physics solver in <code>src/modules/simulation/</code>.
+              <strong>Live Telemetry Engine:</strong> Driven by Member 3 physical SimulationEngine and Member 2 engineering power & mass calculations.
             </span>
           </div>
-          <span className="px-2 py-0.5 rounded bg-amber-500/20 text-[10px] font-bold">
-            DEMO TELEMETRY ACTIVE
+          <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            REAL-TIME PHYSICS
           </span>
         </div>
 

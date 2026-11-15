@@ -1,4 +1,4 @@
-import { SpacecraftComponent, ComponentCategory } from '../types/builder';
+import type { SpacecraftComponent, ComponentCategory } from '../types/builder';
 
 export const COMPONENT_CATEGORIES: { id: ComponentCategory; label: string; icon: string }[] = [
   { id: 'structure', label: 'STRUCTURE', icon: 'Box' },

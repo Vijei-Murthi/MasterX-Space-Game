@@ -22,6 +22,14 @@ let activeEngine: SimulationEngine | null = null;
 let currentEngineMissionId: string | null = null;
 
 /**
+ * Resets the active simulation engine instance so next access starts fresh.
+ */
+export function resetSimulationEngine(): void {
+  activeEngine = null;
+  currentEngineMissionId = null;
+}
+
+/**
  * Maps frontend MissionState into Member 3's typed SimulationInput
  */
 export function createSimulationInput(mission: MissionState): SimulationInput {
@@ -52,6 +60,16 @@ export function createSimulationInput(mission: MissionState): SimulationInput {
     .map((id) => COMPONENT_CATALOGUE.find((c) => c.id === id))
     .filter(Boolean) as SpacecraftComponent[];
 
+  const commBand: 'UHF' | 'S-BAND' | 'X-BAND' =
+    metrics.downlinkBandwidthMbps >= 1.0 ? 'S-BAND' : 'UHF';
+
+  const subsystemSpecs = {
+    communicationBand: commBand,
+    downlinkRateMbps: metrics.downlinkBandwidthMbps,
+    imagingDataRateMbPerSec: metrics.imagingDataRateMbPerSec || 25,
+    storageCapacityMb: metrics.storageCapacityMb || 16000,
+  };
+
   return {
     missionId: mission.missionId,
     difficulty: mission.briefing.difficulty,
@@ -66,6 +84,9 @@ export function createSimulationInput(mission: MissionState): SimulationInput {
     resourceTotals,
     selectedComponents: mission.spacecraft,
     resolvedComponents,
+    subsystemSpecs,
+    deterministicSeed: 42,
+    timeCompressionFactor: 1,
   };
 }
 

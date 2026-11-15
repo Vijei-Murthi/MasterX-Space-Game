@@ -18,10 +18,10 @@ import {
   LaunchVehicle,
   ValidationResult,
   CalculatedMetrics,
-  ValidationCheckItem,
+  EngineeringResult,
 } from '../types/engineering';
 import { MissionState } from '../types/mission';
-import { COMPONENT_CATALOGUE } from '../data/builderCatalogue';
+import { evaluateEngineering } from '../modules/engineering';
 
 // ============================================================================
 // 1. SCIENTIFIC PAYLOAD CATALOGUE (Illustrative Nanosat Instruments)
@@ -271,288 +271,59 @@ export const LAUNCH_VEHICLES: LaunchVehicle[] = [
 ];
 
 // ============================================================================
-// 5. RESOURCE CALCULATION ADAPTER (Consumes Member 2 Contract)
+// 5. CACHED ENGINEERING EVALUATION (Member 2 Engine Integration)
 // ============================================================================
-export function calculateResourceMetrics(mission: MissionState): CalculatedMetrics {
-  // Retrieve selected builder items
-  const struct = COMPONENT_CATALOGUE.find((c) => c.id === mission.spacecraft.structure) || COMPONENT_CATALOGUE[2]; // 3U
-  const power = COMPONENT_CATALOGUE.find((c) => c.id === mission.spacecraft.power) || COMPONENT_CATALOGUE[4];
-  const battery = COMPONENT_CATALOGUE.find((c) => c.id === mission.spacecraft.battery) || COMPONENT_CATALOGUE[6];
-  const comms = COMPONENT_CATALOGUE.find((c) => c.id === mission.spacecraft.comms) || COMPONENT_CATALOGUE[8];
-  const adcs = COMPONENT_CATALOGUE.find((c) => c.id === mission.spacecraft.adcs) || COMPONENT_CATALOGUE[10];
-  const comp = COMPONENT_CATALOGUE.find((c) => c.id === mission.spacecraft.computer) || COMPONENT_CATALOGUE[12];
-  
-  // Selected Payload
-  const payload = PAYLOAD_CATALOGUE.find((p) => p.id === mission.payload.selectedPayloadId) || PAYLOAD_CATALOGUE[0];
-  
-  // Selected TCS
-  const tcs = TCS_CATALOGUE.find((t) => t.id === mission.subsystems.tcsId) || TCS_CATALOGUE[0];
+let lastEvaluatedKey = '';
+let lastEngineeringResult: EngineeringResult | null = null;
 
-  // Selected Launch Vehicle
-  const launch = LAUNCH_VEHICLES.find((l) => l.id === mission.orbitLaunch.selectedLaunchVehicleId) || LAUNCH_VEHICLES[0];
+function getMissionCacheKey(mission: MissionState): string {
+  return [
+    mission.missionId,
+    mission.lastUpdated,
+    mission.spacecraft.structure,
+    mission.spacecraft.power,
+    mission.spacecraft.battery,
+    mission.spacecraft.comms,
+    mission.spacecraft.adcs,
+    mission.spacecraft.computer,
+    mission.payload.selectedPayloadId,
+    mission.payload.dutyCyclePercent,
+    mission.subsystems.tcsId,
+    mission.orbitLaunch.selectedOrbitId,
+    mission.orbitLaunch.selectedLaunchVehicleId,
+    mission.briefing.maxMassKg,
+    mission.briefing.budgetUSD,
+    mission.briefing.minPowerWatts,
+    mission.briefing.batteryReserveWh,
+  ].join('|');
+}
 
-  // Aggregate Mass
-  const busMassKg = struct.massKg + power.massKg + battery.massKg + comms.massKg + adcs.massKg + comp.massKg;
-  const totalMassKg = Number((busMassKg + payload.massKg + tcs.massKg).toFixed(2));
-  const maxMassKg = mission.briefing.maxMassKg || 12.0;
-  const massMarginKg = Number((maxMassKg - totalMassKg).toFixed(2));
-
-  // Power Calculations
-  const powerGeneratedWatts = power.powerGenerationWatts || 38.0;
-  const powerConsumedWatts = Number((
-    (power.powerConsumptionWatts || 0) +
-    (battery.powerConsumptionWatts || 1.0) +
-    (comms.powerConsumptionWatts || 8.0) +
-    (adcs.powerConsumptionWatts || 5.0) +
-    (comp.powerConsumptionWatts || 4.0) +
-    (payload.powerWatts || 8.0) +
-    (tcs.powerWatts || 0)
-  ).toFixed(1));
-  const netPowerWatts = Number((powerGeneratedWatts - powerConsumedWatts).toFixed(1));
-  const batteryCapacityWh = battery.storageCapacityWh || 65.0;
-
-  // Financial Ledger
-  const busCostUSD = struct.costUSD + power.costUSD + battery.costUSD + comms.costUSD + adcs.costUSD + comp.costUSD;
-  const hardwareCostUSD = busCostUSD + payload.costUSD + tcs.costUSD;
-  const totalCostUSD = hardwareCostUSD + launch.costUSD;
-  const maxBudgetUSD = mission.briefing.budgetUSD || 2500000;
-  const remainingBudgetUSD = maxBudgetUSD - totalCostUSD;
-
-  // Scientific Data Ledger
-  const rawMbPerCapture = 150;
-  const capturesPerDay = mission.planner.selectedTargetIds.length > 0 ? mission.planner.selectedTargetIds.length * 4 : 8;
-  const dataGeneratedMbPerDay = capturesPerDay * rawMbPerCapture;
-  const storageCapacityMb = (comp.id === 'comp-advanced' ? 32000 : 16000); // 16GB or 32GB Flash
-  const remainingStorageMb = storageCapacityMb - dataGeneratedMbPerDay;
-
-  // Communications Link Margin
-  const isHighGain = comms.id === 'comms-highgain';
-  const downlinkBandwidthMbps = isHighGain ? 2.5 : 0.0096;
-  const linkMarginDb = isHighGain ? 4.8 : 8.2;
-
-  return {
-    totalMassKg,
-    maxMassKg,
-    massMarginKg,
-    powerGeneratedWatts,
-    powerConsumedWatts,
-    netPowerWatts,
-    batteryCapacityWh,
-    totalCostUSD,
-    maxBudgetUSD,
-    remainingBudgetUSD,
-    dataGeneratedMbPerDay,
-    storageCapacityMb,
-    remainingStorageMb,
-    downlinkBandwidthMbps,
-    linkMarginDb,
-    isDemoData: true,
-    dataSourceLabel: 'DEMO DATA (Awaiting Member 2 Engineering Module)',
-  };
+/**
+ * Evaluates the full spacecraft engineering model using Member 2's evaluateEngineering().
+ * Caches results per mission state signature to prevent duplicate evaluations in the same render.
+ */
+export function evaluateMissionEngineering(mission: MissionState): EngineeringResult {
+  const key = getMissionCacheKey(mission);
+  if (key === lastEvaluatedKey && lastEngineeringResult) {
+    return lastEngineeringResult;
+  }
+  lastEngineeringResult = evaluateEngineering(mission);
+  lastEvaluatedKey = key;
+  return lastEngineeringResult;
 }
 
 // ============================================================================
-// 6. VALIDATION ENGINE ADAPTER (Consumes Member 2 Validation Rules)
+// 6. RESOURCE CALCULATION ADAPTER (Delegates to Member 2 Engineering Module)
+// ============================================================================
+export function calculateResourceMetrics(mission: MissionState): CalculatedMetrics {
+  const result = evaluateMissionEngineering(mission);
+  return result.metrics;
+}
+
+// ============================================================================
+// 7. VALIDATION ENGINE ADAPTER (Delegates to Member 2 Engineering Module)
 // ============================================================================
 export function validateMissionDesign(mission: MissionState): ValidationResult {
-  const metrics = calculateResourceMetrics(mission);
-  const checks: ValidationCheckItem[] = [];
-  const errors: string[] = [];
-  const warnings: string[] = [];
-
-  // 1. MASS VALIDATION
-  if (metrics.totalMassKg > metrics.maxMassKg) {
-    const msg = `Total spacecraft mass (${metrics.totalMassKg} kg) exceeds launch envelope limit of ${metrics.maxMassKg} kg.`;
-    errors.push(msg);
-    checks.push({
-      id: 'check-mass',
-      category: 'MASS',
-      title: 'Total Spacecraft Mass Limit',
-      status: 'FAIL',
-      metricCurrent: `${metrics.totalMassKg} kg`,
-      metricLimit: `Max ${metrics.maxMassKg} kg`,
-      explanation: msg,
-      suggestedCorrection: 'Select a lighter chassis or downsize high-mass subsystem components.',
-    });
-  } else if (metrics.massMarginKg < 1.0) {
-    const msg = `Mass margin is slim (${metrics.massMarginKg} kg remaining). Potential acoustic margin risk during launch.`;
-    warnings.push(msg);
-    checks.push({
-      id: 'check-mass',
-      category: 'MASS',
-      title: 'Total Spacecraft Mass Limit',
-      status: 'WARNING',
-      metricCurrent: `${metrics.totalMassKg} kg`,
-      metricLimit: `Max ${metrics.maxMassKg} kg`,
-      explanation: msg,
-      suggestedCorrection: 'Consider optimizing payload bracketry to recover at least 1.5 kg margin.',
-    });
-  } else {
-    checks.push({
-      id: 'check-mass',
-      category: 'MASS',
-      title: 'Total Spacecraft Mass Limit',
-      status: 'PASS',
-      metricCurrent: `${metrics.totalMassKg} kg`,
-      metricLimit: `Max ${metrics.maxMassKg} kg`,
-      explanation: `Spacecraft mass conforms with deployer canister specifications. Healthy ${metrics.massMarginKg} kg margin.`,
-    });
-  }
-
-  // 2. POWER BALANCE VALIDATION
-  if (metrics.netPowerWatts < 0) {
-    const msg = `Daylight power deficit detected (${metrics.netPowerWatts} W). Battery will deplete progressively across consecutive orbits.`;
-    errors.push(msg);
-    checks.push({
-      id: 'check-power',
-      category: 'POWER',
-      title: 'Daylight Power Balance',
-      status: 'FAIL',
-      metricCurrent: `${metrics.netPowerWatts} W net`,
-      metricLimit: 'Min > 0.0 W',
-      explanation: msg,
-      suggestedCorrection: 'Upgrade to High-Efficiency Articulated Solar Wings or reduce continuous payload duty cycle.',
-    });
-  } else if (metrics.netPowerWatts < 5.0) {
-    const msg = `Daylight power surplus is marginal (${metrics.netPowerWatts} W). Slower battery recharging during high beta angle seasons.`;
-    warnings.push(msg);
-    checks.push({
-      id: 'check-power',
-      category: 'POWER',
-      title: 'Daylight Power Balance',
-      status: 'WARNING',
-      metricCurrent: `+${metrics.netPowerWatts} W surplus`,
-      metricLimit: 'Recommended > +10.0 W',
-      explanation: msg,
-      suggestedCorrection: 'Schedule high-power transmitter downlinks strictly over ground station passes.',
-    });
-  } else {
-    checks.push({
-      id: 'check-power',
-      category: 'POWER',
-      title: 'Daylight Power Balance',
-      status: 'PASS',
-      metricCurrent: `+${metrics.netPowerWatts} W surplus`,
-      metricLimit: 'Min > 0.0 W',
-      explanation: `Solar panels generate robust power surplus (+${metrics.netPowerWatts} W) to fully recharge batteries before each eclipse pass.`,
-    });
-  }
-
-  // 3. BUDGET ALLOCATION VALIDATION
-  if (metrics.remainingBudgetUSD < 0) {
-    const overage = Math.abs(metrics.remainingBudgetUSD);
-    const msg = `Mission cost exceeds authorized agency budget by $${(overage / 1000).toLocaleString()}k.`;
-    errors.push(msg);
-    checks.push({
-      id: 'check-budget',
-      category: 'BUDGET',
-      title: 'Authorized Agency Budget',
-      status: 'FAIL',
-      metricCurrent: `$${(metrics.totalCostUSD / 1000000).toFixed(2)}M`,
-      metricLimit: `Max $${(metrics.maxBudgetUSD / 1000000).toFixed(2)}M`,
-      explanation: msg,
-      suggestedCorrection: 'Choose rideshare launch vehicle or swap premium rad-hard avionics for standard flight-proven hardware.',
-    });
-  } else {
-    checks.push({
-      id: 'check-budget',
-      category: 'BUDGET',
-      title: 'Authorized Agency Budget',
-      status: 'PASS',
-      metricCurrent: `$${(metrics.totalCostUSD / 1000000).toFixed(2)}M`,
-      metricLimit: `Max $${(metrics.maxBudgetUSD / 1000000).toFixed(2)}M`,
-      explanation: `All spacecraft subsystems and launch provider contracts are fully funded with $${(metrics.remainingBudgetUSD / 1000).toLocaleString()}k contingency reserve.`,
-    });
-  }
-
-  // 4. ATTITUDE POINTING & PAYLOAD COMPATIBILITY
-  const isHiResPayload = mission.payload.selectedPayloadId === 'payload-opt-hires';
-  const hasPrecisionADCS = mission.spacecraft.adcs === 'adcs-advanced';
-  if (isHiResPayload && !hasPrecisionADCS) {
-    const msg = 'EO-CAM 100 optical telescope requires sub-arcminute pointing precision to avoid ground motion blur (7.6 km/s flight speed).';
-    errors.push(msg);
-    checks.push({
-      id: 'check-adcs-compat',
-      category: 'ORBIT',
-      title: 'Payload / ADCS Pointing Stability',
-      status: 'FAIL',
-      metricCurrent: 'Magnetic Torquers (±5° coarse)',
-      metricLimit: 'Reaction Wheels (±0.05°)',
-      explanation: msg,
-      suggestedCorrection: 'Upgrade ADCS to Precision 3-Axis Reaction Wheels + Star Tracker.',
-    });
-  } else {
-    checks.push({
-      id: 'check-adcs-compat',
-      category: 'ORBIT',
-      title: 'Payload / ADCS Pointing Stability',
-      status: 'PASS',
-      metricCurrent: hasPrecisionADCS ? 'Reaction Wheels (±0.05°)' : 'Compatible',
-      metricLimit: '±0.05° required for high-res',
-      explanation: 'Attitude control actuators satisfy target line-of-sight stabilization requirements during scientific sweeps.',
-    });
-  }
-
-  // 5. TELEMETRY & DATA DOWNLINK CAPACITY
-  const isHiDataRatePayload = mission.payload.selectedPayloadId === 'payload-opt-hires' || mission.payload.selectedPayloadId === 'payload-hyperspec';
-  const hasHighGainComms = mission.spacecraft.comms === 'comms-highgain';
-  if (isHiDataRatePayload && !hasHighGainComms) {
-    const msg = 'Basic UHF whip antenna (9.6 kbps) cannot downlink multi-gigabyte scientific imagery before onboard memory buffer saturates.';
-    warnings.push(msg);
-    checks.push({
-      id: 'check-comms-bandwidth',
-      category: 'COMM',
-      title: 'Data Downlink Throughput',
-      status: 'WARNING',
-      metricCurrent: '9.6 kbps (UHF whip)',
-      metricLimit: '2.5 Mbps S-Band recommended',
-      explanation: msg,
-      suggestedCorrection: 'Upgrade communications to High-Gain S-Band Transmitter & Patch Array.',
-    });
-  } else {
-    checks.push({
-      id: 'check-comms-bandwidth',
-      category: 'COMM',
-      title: 'Data Downlink Throughput',
-      status: 'PASS',
-      metricCurrent: hasHighGainComms ? '2.5 Mbps (S-Band)' : '9.6 kbps',
-      metricLimit: 'Sufficient for selected instruments',
-      explanation: 'Ground station pass downlink pipeline supports planned daily scientific capture volume without storage overflow.',
-    });
-  }
-
-  // 6. LAUNCH VEHICLE MASS CAPACITY
-  const launch = LAUNCH_VEHICLES.find((l) => l.id === mission.orbitLaunch.selectedLaunchVehicleId) || LAUNCH_VEHICLES[0];
-  if (metrics.totalMassKg > launch.maxPayloadKg) {
-    const msg = `Spacecraft mass (${metrics.totalMassKg} kg) exceeds dispenser envelope on ${launch.name} (${launch.maxPayloadKg} kg).`;
-    errors.push(msg);
-    checks.push({
-      id: 'check-launch-compat',
-      category: 'LAUNCH',
-      title: 'Launch Vehicle Dispenser Capacity',
-      status: 'FAIL',
-      metricCurrent: `${metrics.totalMassKg} kg`,
-      metricLimit: `${launch.maxPayloadKg} kg limit`,
-      explanation: msg,
-      suggestedCorrection: `Select a launch provider with larger dispenser payload rating, such as Falcon 9 Rideshare.`,
-    });
-  } else {
-    checks.push({
-      id: 'check-launch-compat',
-      category: 'LAUNCH',
-      title: 'Launch Vehicle Dispenser Capacity',
-      status: 'PASS',
-      metricCurrent: `${metrics.totalMassKg} kg`,
-      metricLimit: `${launch.maxPayloadKg} kg limit`,
-      explanation: `Spacecraft structural dimensions and wet mass fit cleanly inside ${launch.provider} ${launch.name} deployer canister.`,
-    });
-  }
-
-  return {
-    isValid: errors.length === 0,
-    errors,
-    warnings,
-    checks,
-    isDemoData: true,
-  };
+  const result = evaluateMissionEngineering(mission);
+  return result.validation;
 }
